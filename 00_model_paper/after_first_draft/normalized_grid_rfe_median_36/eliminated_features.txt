@@ -1,0 +1,11 @@
+0	cT
+1	hetero
+2	clustered
+3	non-mass
+4	cAverage
+5	aSD
+6	LR
+7	sex
+8	lMax
+9	AorCa
+10	LymAo

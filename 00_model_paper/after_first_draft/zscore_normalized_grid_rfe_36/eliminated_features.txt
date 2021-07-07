@@ -1,0 +1,12 @@
+0	rim
+1	non-mass
+2	sex
+3	clustered
+4	hetero
+5	age
+6	homogeneous
+7	LymCa
+8	cN
+9	AorCa
+10	aSD
+11	lMax
