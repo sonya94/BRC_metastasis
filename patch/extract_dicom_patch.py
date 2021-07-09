@@ -84,10 +84,8 @@ def search_ref_dcm(nUID, nPath):
     # nPath : path to case which currently working on
     # return: PIL Image (pixel_array from dcm)
     for series_nonQ in [list_series for list_series in os.listdir(nPath) if
-                        list_series.find('Q') < 0 and not list_series.startswith(
-                                '.')]:  # iterate series except Q series
-        for nDcm in [list_dcm for list_dcm in os.listdir(os.path.join(PATH_SERIES, series_nonQ)) if
-                     list_dcm.endswith('.dcm') and not list_dcm.startswith('.')]:  # check extension
+                        list_series.find('Q') < 0 and not list_series.startswith('.')]:  # iterate series except Q series
+        for nDcm in [list_dcm for list_dcm in os.listdir(os.path.join(PATH_SERIES, series_nonQ)) if list_dcm.endswith('.dcm') and not list_dcm.startswith('.')]:  # check extension
             with dicom.read_file(os.path.join(PATH_SERIES, series_nonQ, nDcm)) as dcm:
                 if dcm.SOPInstanceUID == matching_uid:  # searching target dcm with Q
                     img = dcm2img(dcm, mode='RGB')
@@ -129,22 +127,35 @@ if __name__ == '__main__':
                         label_ans = ImageDraw.Draw(img_ans)  # set to draw label on image
 
                         if "GraphicObjectSequence" in dcm_q.GraphicAnnotationSequence[nAnnotation]:
+
                             for nA_Object in range(
                                     len(dcm_q.GraphicAnnotationSequence[nAnnotation].GraphicObjectSequence)):
-                                obj_shape = \
-                                dcm_q.GraphicAnnotationSequence[nAnnotation].GraphicObjectSequence[nA_Object][0x711001].value
+                                # obj_shape = dcm_q.GraphicAnnotationSequence[nAnnotation].GraphicObjectSequence[nA_Object][0x711001].value
+                                obj_shape = dcm_q.GraphicAnnotationSequence[nAnnotation].GraphicObjectSequence[nA_Object].NumberOfGraphicPoints
                                 obj_graphic_data = dcm_q.GraphicAnnotationSequence[nAnnotation].GraphicObjectSequence[nA_Object].GraphicData
                                 print("Object shape is {}".format(obj_shape))
 
-                                if obj_shape == 'RECT':
-                                    pt_X = sorted(obj_graphic_data[::2])
-                                    pt_Y = sorted(obj_graphic_data[1::2])
-                                    ellipse_data = [min(pt_X), min(pt_Y), max(pt_X), max(pt_Y)]
-                                    label_ans.rectangle(list(map(int, ellipse_data)), outline="red")
+                                # if obj_shape == 'RECT':
+                                #     pt_X = sorted(obj_graphic_data[::2])
+                                #     pt_Y = sorted(obj_graphic_data[1::2])
+                                #     ellipse_data = [min(pt_X), min(pt_Y), max(pt_X), max(pt_Y)]
+                                #     label_ans.rectangle(list(map(int, ellipse_data)), outline="red")
 
-        os.path.join(PATH_BASE, nPatient, nCase, series_Q, nQ)
-        draw_img_name = os.path.join(PATH_BASE, nPatient, nCase, series_Q, nQ.split('_')[3].split('.')[0] + "-" + name_series.split('.')[0] + "-" + name_dcm.replace('.dcm', '.png'))
-        img_ans.show()
-        # cv2.imshow(img_ans)
+                                if obj_shape == 5:  # Rect
+                                    isDrawn = True
+                                    print("Object shape is Polyline")
+                                    polyline_data = []
+                                    for i in range(obj_shape):
+                                        polyline_data.append(tuple(obj_graphic_data[i * 2:i * 2 + 2]))
+                                    label_ans.line(polyline_data, width=label_width, fill='red', joint='curve')
+
+                    os.path.join(PATH_BASE, nPatient, nCase, series_Q, nQ)
+                    draw_img_name = os.path.join(PATH_BASE, nPatient, nCase, series_Q, nQ.split('_')[3].split('.')[0] + "-" + name_series.split('.')[0] + "-" + name_dcm.replace('.dcm', '.png'))
+                    # img_ans.show()
+                    print(img_ans.mode)
+                    print(img_ans.size)
+                    plt.imshow(img_ans)
+                    plt.show()
+                # cv2.imshow(img_ans)
                         # img_ans.save(draw_img_name)
-        break
+                    break
