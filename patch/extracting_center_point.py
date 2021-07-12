@@ -44,49 +44,68 @@ def window_image(medical_image, image_pixels):
     window_image[window_image > img_max] = img_max
     return window_image
 
-# def get_windowing(data):
-#     if 'RescaleSlope' in data:
-#         dicom_fields = [data[('0028', '1050')].value,  # window center
-#                         data[('0028', '1051')].value,  # window width
-#                         data[('0028', '1052')].value,  # intercept
-#                         data[('0028', '1053')].value]  # slope
-#     else:
-#         dicom_fields = [data[('0028', '1050')].value,  # window center
-#                         data[('0028', '1051')].value,  # window width
-#                         0,  # intercept
-#                         1]  # slope
-#     return [get_first_of_dicom_field_as_int(x) for x in dicom_fields]
-#
-#
-# def window_image(img, window_center, window_width, intercept, slope):
-#     img = (img * slope + intercept)
-#     img_min = window_center - window_width // 2
-#     img_max = window_center + window_width // 2
-#
-#     img[img <= img_min] = img_min
-#     img[img > img_max] = img_max
-#
-#     return img
+def dcm2pixels(dcm):
+    hu_image = transform_to_hu(dcm, dcm.pixel_array)
+    image_windowed = window_image(dcm, hu_image)
+    return image_windowed
 
 
-# def get_first_of_dicom_field_as_int(x):
-#     # get x[0] as in int is x is a 'pydicom.multival.MultiValue', otherwise get int(x)
-#     if type(x) == dicom.multival.MultiValue:
-#         return int(x[0])
-#     else:
-#         return int(x)
-#
-#
-# def dcm2img(dcm, mode=None):
-#     window_center, window_width, intercept, slope = get_windowing(dcm)
-#     image_windowed = window_image(dcm.pixel_array, window_center, window_width, intercept, slope)
-#     if mode == 'RGB' or 'rgb':
-#         img_gray = Image.fromarray(image_windowed).convert('L')
-#         img_result = Image.merge("RGB", (img_gray, img_gray, img_gray))
-#     else:
-#         img_result = Image.fromarray(image_windowed).convert('L')
-#
-#     return img_result
+def search_ref_dcm(nUID, nPath):
+    # nUID : referenced dcm UID of annotation object
+    # nPath : path to case which currently working on
+    # return: PIL Image (pixel_array from dcm)
+    for series_nonQ in [list_series for list_series in os.listdir(nPath) if
+                        list_series.find('Q') < 0 and not list_series.startswith('.')]:  # iterate series except Q series
+        for nDcm in [list_dcm for list_dcm in os.listdir(os.path.join(PATH_SERIES, series_nonQ)) if list_dcm.endswith('.dcm') and not list_dcm.startswith('.')]:  # check extension
+            with dicom.read_file(os.path.join(PATH_SERIES, series_nonQ, nDcm)) as dcm:
+                if dcm.SOPInstanceUID == matching_uid:  # searching target dcm with Q
+                    img = dcm2pixels(dcm)
+                    return img, series_nonQ, nDcm
+
+
+def get_windowing(data):
+    if 'RescaleSlope' in data:
+        dicom_fields = [data[('0028', '1050')].value,  # window center
+                        data[('0028', '1051')].value,  # window width
+                        data[('0028', '1052')].value,  # intercept
+                        data[('0028', '1053')].value]  # slope
+    else:
+        dicom_fields = [data[('0028', '1050')].value,  # window center
+                        data[('0028', '1051')].value,  # window width
+                        0,  # intercept
+                        1]  # slope
+    return [get_first_of_dicom_field_as_int(x) for x in dicom_fields]
+
+
+def window_image_old(img, window_center, window_width, intercept, slope):
+    img = (img * slope + intercept)
+    img_min = window_center - window_width // 2
+    img_max = window_center + window_width // 2
+
+    img[img <= img_min] = img_min
+    img[img > img_max] = img_max
+
+    return img
+
+
+def get_first_of_dicom_field_as_int(x):
+    # get x[0] as in int is x is a 'pydicom.multival.MultiValue', otherwise get int(x)
+    if type(x) == dicom.multival.MultiValue:
+        return int(x[0])
+    else:
+        return int(x)
+
+
+def dcm2img(dcm, mode=None):
+    window_center, window_width, intercept, slope = get_windowing(dcm)
+    image_windowed = window_image_old(dcm.pixel_array, window_center, window_width, intercept, slope)
+    if mode == 'RGB' or 'rgb':
+        img_gray = Image.fromarray(image_windowed).convert('L')
+        img_result = Image.merge("RGB", (img_gray, img_gray, img_gray))
+    else:
+        img_result = Image.fromarray(image_windowed).convert('L')
+
+    return img_result
 
 
 def search_ref_dcm(nUID, nPath):
@@ -100,7 +119,6 @@ def search_ref_dcm(nUID, nPath):
                 if dcm.SOPInstanceUID == matching_uid:  # searching target dcm with Q
                     img = dcm2img(dcm, mode='RGB')
                     return img, series_nonQ, nDcm
-
 
 def list_files_Q(destpath):
     dcmlist = []
@@ -143,19 +161,20 @@ def click_and_crop(event, x, y, flags, param):
     elif event == cv2.EVENT_LBUTTONUP:  # 반지름을 입력해 동공부분 표시
         print("center end")
         refPt.append((x, y))
-        cv2.circle(image, refPt[0], distance(refPt[0], refPt[1]), (160, 160, 160), 2)
-        cv2.imshow("image", image)
+        cv2.line(image, refPt[0], refPt[0], (160, 160, 160), 5)
+
+        cv2.imshow("ROI_image", image)
         print("refPt : ", refPt)
-    elif event == cv2.EVENT_MBUTTONDOWN:  # 홍채영역을 클릭해
-        print("thickness position")
-        thickPt = [(x, y)]
-    elif event == cv2.EVENT_MBUTTONUP:  # 원의 두께 입력
-        print("thickness end")
-        thickPt.append((x, y))
-        thickness = distance(thickPt[0], thickPt[1])
-        print("refPt : ", refPt, "\tthickPt : ", thickPt)
-        cv2.circle(image, refPt[0], distance(refPt[0], refPt[1]) + int(thickness/2), (160, 160, 160), thickness)
-        cv2.imshow("image", image)
+    # elif event == cv2.EVENT_MBUTTONDOWN:  # 홍채영역을 클릭해
+    #     print("thickness position")
+    #     thickPt = [(x, y)]
+    # elif event == cv2.EVENT_MBUTTONUP:  # 원의 두께 입력
+    #     print("thickness end")
+    #     thickPt.append((x, y))
+    #     thickness = distance(thickPt[0], thickPt[1])
+    #     print("refPt : ", refPt, "\tthickPt : ", thickPt)
+    #     cv2.circle(image, refPt[0], distance(refPt[0], refPt[1]) + int(thickness/2), (160, 160, 160), thickness)
+    #     cv2.imshow("image", image)
 
 
 if __name__=='__main__':
@@ -183,24 +202,18 @@ if __name__=='__main__':
                 dcm_q = dicom.read_file(os.path.join(PATH_ORIGINAL, nPatient, nCase, series_Q, nQ))
                 if "GraphicAnnotationSequence" in dcm_q:
                     for nAnnotation in range(len(dcm_q.GraphicAnnotationSequence)):
+                        isDrawn = False
                         # ================================= Searching Referenced SOP Instance UID to match dicom file ===============================
-                        matching_uid = dcm_q.GraphicAnnotationSequence[nAnnotation].ReferencedImageSequence[
-                            0].ReferencedSOPInstanceUID
-                        img_ans, name_series, name_dcm = search_ref_dcm(matching_uid,
-                                                                        PATH_SERIES)  # matched dcm image per annotation sequence
+                        matching_uid = dcm_q.GraphicAnnotationSequence[nAnnotation].ReferencedImageSequence[0].ReferencedSOPInstanceUID
+                        img_ans, name_series, name_dcm = search_ref_dcm(matching_uid,PATH_SERIES)  # matched dcm image per annotation sequence
                         print(name_series)
                         label_ans = ImageDraw.Draw(img_ans)  # set to draw label on image
-
                         if "GraphicObjectSequence" in dcm_q.GraphicAnnotationSequence[nAnnotation]:
-
                             for nA_Object in range(
                                     len(dcm_q.GraphicAnnotationSequence[nAnnotation].GraphicObjectSequence)):
                                 # obj_shape = dcm_q.GraphicAnnotationSequence[nAnnotation].GraphicObjectSequence[nA_Object][0x711001].value
-                                obj_shape = dcm_q.GraphicAnnotationSequence[nAnnotation].GraphicObjectSequence[
-                                    nA_Object].NumberOfGraphicPoints
-                                obj_graphic_data = dcm_q.GraphicAnnotationSequence[nAnnotation].GraphicObjectSequence[
-                                    nA_Object].GraphicData
-                                print("Object shape is {}".format(obj_shape))
+                                obj_shape = dcm_q.GraphicAnnotationSequence[nAnnotation].GraphicObjectSequence[nA_Object].NumberOfGraphicPoints
+                                obj_graphic_data = dcm_q.GraphicAnnotationSequence[nAnnotation].GraphicObjectSequence[nA_Object].GraphicData
 
                                 # if obj_shape == 'RECT':
                                 #     pt_X = sorted(obj_graphic_data[::2])
@@ -216,46 +229,75 @@ if __name__=='__main__':
                                         polyline_data.append(tuple(obj_graphic_data[i * 2:i * 2 + 2]))
                                     label_ans.line(polyline_data, width=label_width, fill='red', joint='curve')
 
+                        if isDrawn == True:
+                            # os.path.join(PATH_ORIGINAL, nPatient, nCase, series_Q, nQ)
+                            # plt.imshow()
+                            image = np.array(img_ans)
+                            clone = img_ans.copy()
+                            cv2.namedWindow("ROI_image")
+                            cv2.setMouseCallback("ROI_image", click_and_crop)
+
+                            while True:
+                                cv2.imshow("ROI_image", image)
+                                key = cv2.waitKey(1) & 0xFF
+
+                                # 만약 r이 입력되면, 좌표 리셋합니다.
+                                if key == ord("r"):
+                                    image = clone.copy()
+                                # 그린 영역 포함해 이미지를 저장합니다.
+                                elif key == ord("s"):
+                                    # rename = os.path.join(PATH_RESULT, img_dir)
+
+                                    cv2.imwrite(os.path.join(PATH_RESULT, img_dir), image)
+                                # 만약 q가 입력되면 작업을 끝냅니다.
+                                elif key == ord("q"):
+                                    break
+                                elif key == ord("x"):
+                                    quit()
+
+                            # 모든 window를 종료합니다.q
+                            cv2.destroyAllWindows()
+
     # =============================================================
     img_dir_list = os.listdir(PATH_ORIGINAL)
-
-    for img_dir in img_dir_list:
-        if "B." in img_dir:
-            img_path = os.path.join(PATH_ORIGINAL, img_dir)
-
-            # 이미지를 load 합니다.
-            # image = cv2.imread(args["image"])
-            image = cv2.imread(img_path)
-            # 원본 이미지를 clone 하여 복사해 둡니다.
-            clone = image.copy()
-            # 새 윈도우 창을 만들고 그 윈도우 창에 click_and_crop 함수를 세팅해 줍니다.
-            cv2.namedWindow("image")
-            cv2.setMouseCallback("image", click_and_crop)
-
-            '''
-            키보드에서 다음을 입력받아 수행합니다.
-            - q : 다음 이미지로 넘어갑니다..
-            - r : 이미지를 초기화 합니다.
-            - s : 그린 영역을 포함해 이미지를 저장합니다
-            - x : 프로그램을 종료합니다.
-            '''
-            while True:
-                # 이미지를 출력하고 key 입력을 기다립니다.
-                cv2.imshow("image", image)
-                key = cv2.waitKey(1) & 0xFF
-
-                # 만약 r이 입력되면, 좌표 리셋합니다.
-                if key == ord("r"):
-                    image = clone.copy()
-                # 그린 영역 포함해 이미지를 저장합니다.
-                elif key == ord("s"):
-                    # rename = os.path.join(PATH_RESULT, img_dir)
-                    cv2.imwrite(os.path.join(PATH_RESULT, img_dir), image)
-                # 만약 q가 입력되면 작업을 끝냅니다.
-                elif key == ord("q"):
-                    break
-                elif key == ord("x"):
-                    quit()
-
-            # 모든 window를 종료합니다.q
-            cv2.destroyAllWindows()
+    #
+    # for img_dir in img_dir_list:
+    #     if "B." in img_dir:
+    #         img_path = os.path.join(PATH_ORIGINAL, img_dir)
+    #
+    #         # 이미지를 load 합니다.
+    #         # image = cv2.imread(args["image"])
+    #         image = cv2.imread(img_path)
+    #         # 원본 이미지를 clone 하여 복사해 둡니다.
+    #         clone = image.copy()
+    #         # 새 윈도우 창을 만들고 그 윈도우 창에 click_and_crop 함수를 세팅해 줍니다.
+    #         cv2.namedWindow("image")
+    #         cv2.setMouseCallback("image", click_and_crop)
+    #
+    #         '''
+    #         키보드에서 다음을 입력받아 수행합니다.
+    #         - q : 다음 이미지로 넘어갑니다..
+    #         - r : 이미지를 초기화 합니다.
+    #         - s : 그린 영역을 포함해 이미지를 저장합니다
+    #         - x : 프로그램을 종료합니다.
+    #         '''
+    #         while True:
+    #             # 이미지를 출력하고 key 입력을 기다립니다.
+    #             cv2.imshow("image", image)
+    #             key = cv2.waitKey(1) & 0xFF
+    #
+    #             # 만약 r이 입력되면, 좌표 리셋합니다.
+    #             if key == ord("r"):
+    #                 image = clone.copy()
+    #             # 그린 영역 포함해 이미지를 저장합니다.
+    #             elif key == ord("s"):
+    #                 # rename = os.path.join(PATH_RESULT, img_dir)
+    #                 cv2.imwrite(os.path.join(PATH_RESULT, img_dir), image)
+    #             # 만약 q가 입력되면 작업을 끝냅니다.
+    #             elif key == ord("q"):
+    #                 break
+    #             elif key == ord("x"):
+    #                 quit()
+    #
+    #         # 모든 window를 종료합니다.q
+    #         cv2.destroyAllWindows()
