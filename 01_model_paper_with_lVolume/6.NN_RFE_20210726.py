@@ -116,100 +116,6 @@ def confusion_metrics(conf_matrix):
 
     return conf_sensitivity,  conf_specificity
 
-
-def load_excel(nPath):
-    return pd.read_excel(nPath, sheet_name='BRC_metastasis_input', dtype={u'ID': str})
-
-def modify_homogeneous(row):
-    if row['enhancement'] == 'non-enhancement':
-        return 0.25
-    elif row['enhancement'] == 'weak':
-        return 0.50
-    elif row['enhancement'] == 'moderate':
-        return 0.75
-    elif row['enhancement'] == 'high':
-        return 1
-    else:
-        return 0
-
-
-def modify_cN(row):
-    if row['cN'] == 'suspicious':
-        return 0.25
-    elif row['cN'] == 'possible':
-        return 0.50
-    elif row['cN'] == 'probable':
-        return 0.75
-    elif row['cN'] == 'definite':
-        return 1
-    else:
-        return 0
-
-
-def normalize(data):
-    return (data - data.min()) / (data.max() - data.min())
-
-
-def get_ID(nPath):
-    '''
-    nPath : excel파일 경로
-
-    return : 익명환자ID값만을 반환
-    '''
-    data = pd.read_excel(nPath, sheet_name='BRC_metastasis_input', dtype=str)
-    return data[u'ID']
-
-
-def get_IDandLR(nPath):
-    '''
-    nPath : excel파일 경로
-
-    return : 익명환자ID값만을 반환
-    '''
-    data = pd.read_excel(nPath, sheet_name='BRC_metastasis_input', dtype=str)
-    df_filtered = data[[u'ID', u'LR']]
-    df_filtered['LR'] = np.where(data['L/R'] == 'L', 1, 0)
-    return df_filtered
-
-
-def get_normalized_metadata(nPath):
-    '''
-    get original metadata(no normalization)
-    nPath : excel파일 경로
-    '''
-    df_origin = load_excel(nPath)
-    df_origin = df_origin.astype({'cT': 'float64'})
-    df = df_origin[[u'sex', u'age', u'LR', u'cT', 'cN', u'cAverage', u'cSD', u'aAverage', u'aSD', u'lMax']]
-
-    ## ========= modifying ======== ##
-    df['sex'] = np.where(df_origin['sex'] == 'F', 1, 0)
-    df['age'] = normalize(df_origin['age'])
-
-    df['LR'] = np.where(df_origin['LR'] == 'L', 1, 0)
-
-    df['homogeneous'] = df_origin.apply(modify_homogeneous, axis=1)
-    df['hetero'] = np.where(df_origin['enhancement'] == 'hetero', 1, 0)
-    df['rim'] = np.where(df_origin['enhancement'] == 'rim', 1, 0)
-    df['clustered'] = np.where(df_origin['enhancement'] == 'clustered', 1, 0)
-    df['non-mass'] = np.where(df_origin['enhancement'] == 'non-mass', 1, 0)
-
-    df['cT'] = normalize(df_origin['cT'])
-    df['cAverage'] = normalize(df_origin['cAverage'])
-    df['cSD'] = normalize(df_origin['cSD'])
-    df['aAverage'] = normalize(df_origin['aAverage'])
-    df['aSD'] = normalize(df_origin['aSD'])
-    df['lMax'] = normalize(df_origin['lMax'])
-
-    df['AorCa'] = normalize(df_origin['aAverage'] - df_origin['cAverage'])
-    df['LymAo'] = normalize(df_origin['aAverage'] - df_origin['lMax'])
-    df['LymCa'] = normalize(df_origin['cAverage'] - df_origin['lMax'])
-
-    df['cN'] = df_origin.apply(modify_cN, axis=1)
-
-    df['label'] = df_origin[u'pN_modify']
-
-    return df
-
 if __name__ == '__main__':
 
     print("This is local file")
@@ -218,15 +124,130 @@ if __name__ == '__main__':
     file_path0 = './BRC_input_210720_train.xlsx'
     file_path1 = './BRC_input_210720_test.xlsx'
 
-    train_excel = load_excel(file_path0)
-    print(train_excel)
-    #
-    #
-    #
-    # meta_train = sonya.get_normalized_metadata(file_path0)
-    # meta_test = sonya.get_normalized_metadata(file_path1)
-    # target_dir = './model_06_NN_RFE/'
-    # sonya.createFolder(target_dir)
+    meta_train = sonya.get_normalized_metadata(file_path0)
+    meta_test = sonya.get_normalized_metadata(file_path1)
+    target_dir = './model_06_NN_RFE/'
+    sonya.createFolder(target_dir)
+
+    properties = [  # total 18
+        'sex',
+        'age',
+        'LR',
+        'cT',
+        'cN',
+        'cAverage',
+        'cSD',
+        'aAverage',
+        'aSD',
+        'lMax',
+        'lVolume',
+        'homogeneous',
+        'hetero',
+        'rim',
+        'clustered',
+        'non-mass',
+        'AorCa',
+        'LymAo',
+        'LymCa'
+    ]
+
+    num_properties = len(properties)
+
+    X_train = meta_train[properties]
+    y_train = meta_train['label']
+
+    X_test = meta_test[properties]
+    y_test = meta_test['label']
+
+    num_features = len(properties)
+
+    batch_size = 25
+    learning_rate = 0.005
+    layer1 = 11
+    layer2 = 11
+    roc_result = 0
+
+    my_model = mlp_model(num_features, lr=learning_rate, l1=layer1, l2=layer2)
+    # roc_result = cross_validation(my_model, X_train, y_train, nbatch=batch_size, nlr=learning_rate, l1=layer1, l2=layer2)
+    # def cross_validation(model, X, y, nfold=10, nbatch=5, nlr=0.001, l1=16, l2=16):
+    kfold = StratifiedKFold(n_splits=10, shuffle=True)
+    accuracy = []
+    tprs = []
+    aucs = []
+    mean_fpr = np.linspace(0, 1, 100)
+
+    # K-fold cross validation
+    # 학습 데이터를 이용해서 학습
+
+    i = 1
+    for train_index, validation_index in kfold.split(X_train, y_train):
+        kX_train, kX_test = X_train.iloc[train_index], X_train.iloc[validation_index]
+        ky_train, ky_test = y_train.iloc[train_index], y_train.iloc[validation_index]
+
+        print("======================batch: {}, lr = {}, FOLD: {}====================".format(batch_size, learning_rate,
+                                                                                              i))
+        cbks = [callbacks.LearningRateScheduler(lambda epoch: 0.001 * 0.5 ** (epoch // 2)),
+                callbacks.TensorBoard(write_graph=False)]
+        # hist = model.fit(kX_train, ky_train, epochs=500, batch_size=5, validation_data=(kX_test,ky_test),callbacks=[tb_hist])
+        my_model.fit(kX_train, ky_train, epochs=500, batch_size=batch_size, validation_data=(kX_test, ky_test),
+                     callbacks=cbks,
+                     verbose=0)
+        y_val_cat_prob = my_model.predict_proba(kX_test)
+
+        k_accuracy = '%.4f' % (my_model.evaluate(kX_test, ky_test)[1])
+        accuracy.append(k_accuracy)
+
+        # roc curve
+        fpr, tpr, t = roc_curve(y_train.iloc[validation_index], y_val_cat_prob)
+        tprs.append(interp(mean_fpr, fpr, tpr))
+        roc_auc = auc(fpr, tpr)
+        aucs.append(roc_auc)
+
+        i = i + 1
+
+        # 전체 검증 결과 출력
+
+        # Assigning columns namese
+        #     cm_df = pd.DataFrame(cm, columns = )
+
+        test_loss, test_acc = my_model.evaluate(kX_test, ky_test)
+        #         test_acc_str = 'cross_validation_test acuracy: {}'.format(test_acc)
+        # print('Test acuracy: {}'.format(test_acc))
+        #         print(test_acc_str)
+        print('\nK-fold cross validation Accuracy: {}'.format(test_acc))
+
+    y_pred_proba = (my_model.predict(X_train) >= 0.693).astype(int)
+    cm = confusion_matrix(y_train, y_pred_proba)
+    print("Radiologist + AI")
+    print(cm)
+    confusion_metrics(cm)
+
+    mean_tpr = np.mean(tprs, axis=0)
+    mean_auc = auc(mean_fpr, mean_tpr)
+    roc_result = mean_auc
+    print(roc_result)
+
+    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    model_name = target_dir + 'AUC' + str(int(float(mean_auc) * 100)) + "_" + current_time
+    model_json = my_model.to_json()
+
+    with open('{}.json'.format(model_name), 'w') as json_file:
+        json_file.write(model_json)  # save model per fold
+
+    my_model.save_weights('{}.h5'.format(model_name))  # save weight per fold
+
+    plt.plot(mean_fpr, mean_tpr, color='red', label=r'radiologist + AI(AUC = %0.2f)' % (mean_auc), lw=2, alpha=1)
+    plt.show()
+    x_bar = np.mean(aucs)
+    s = np.std(aucs)
+    n = len(aucs)
+
+    z = 1.96
+    lower = x_bar - (z * (s / sqrt(n)))
+    upper = x_bar + (z * (s / sqrt(n)))
+    # interval = z * sqrt( (test_acc * (1 - test_acc)) / len(meta_test))
+    print(lower, upper)
+
 
 
 

@@ -7,6 +7,7 @@
 @Contect : thegiggles@naver.com
 @Time    : 2021-07-09 오후 12:22
 @Desc: at widnows (env_dicom)
+    Extract center point and patch
 """
 
 import os, sys
@@ -242,8 +243,7 @@ if __name__=='__main__':
     label_width = 5
     for nPatient in [list_patient for list_patient in os.listdir(PATH_ORIGINAL) if not list_patient.startswith('.')]:  # iterate all patient
         print(nPatient)
-        for nCase in [list_case for list_case in os.listdir(os.path.join(PATH_ORIGINAL, nPatient)) if
-                      not list_case.startswith('.')]:  # search Q file series
+        for nCase in [list_case for list_case in os.listdir(os.path.join(PATH_ORIGINAL, nPatient)) if not list_case.startswith('.')]:  # search Q file series
             PATH_SERIES = os.path.join(PATH_ORIGINAL, nPatient, nCase)
             series_Q = [list_SeriesQ for list_SeriesQ in os.listdir(PATH_SERIES) if list_SeriesQ.find('Q') >= 0][0]
             pixel_spacing = 0
@@ -282,48 +282,48 @@ if __name__=='__main__':
                             draw_img_name = os.path.join(PATH_FULL_PNG_RESULT, name_dcm.split('.')[0] + str('.png'))
                             img_ans.save(draw_img_name, format='PNG')
 
-                            # iso_img = Image.fromarray(iso_img)
-                            # Image.fromarray(img_iso).save('./test_img.tif')
-                            # print("test")
-                            # # plt.imshow(img_iso, cmap=plt.cm.bone)
-                            # # plt.show()
-                            #
-                            # # os.path.join(PATH_ORIGINAL, nPatient, nCase, series_Q, nQ)
-                            # # plt.imshow()
-                            # # image = np.array(img_iso)
-    #                         image = np.asarray(img_iso)
-    #                         clone = img_iso.copy()
-    #                         cv2.namedWindow("isoImage")
-    #                         cv2.namedWindow("ROI_Image")
-    #                         cv2.setMouseCallback("isoImage", click_and_crop)
-    #
-    #                         while True:
-    #                             cv2.imshow("isoImage", image)
-    #                             cv2.imshow("ROI_Image", np.asarray(img_ans))
-    #                             key = cv2.waitKey(1) & 0xFF
-    #
-    #                             # 만약 r이 입력되면, 좌표 리셋합니다.
-    #                             if key == ord("r"):
-    #                                 image = clone.copy()
-    #                             # 그린 영역 포함해 이미지를 저장합니다.
-    #                             elif key == ord("s"):
-    #                                 # rename = os.path.join(PATH_RESULT, img_dir)
-    #                                 # cropped_img = image[]
-    #                                 new_record = {'dcm_name' : name_dcm, 'center_position': refPt[0]}
-    #                                 record.loc[record_count] = new_record
-    #                                 record_count += 1
-    #                                 imageio.imwrite(os.path.join(PATH_RESULT, name_dcm.split('.')[0] + str('.png')), cropped_image.astype(np.int16))
-    #
-    #                                 # cv2.imwrite(os.path.join(PATH_RESULT, img_dir), image)
-    #                             # 만약 q가 입력되면 작업을 끝냅니다.
-    #                             elif key == ord("q"):
-    #                                 break
-    #                             elif key == ord("x"):
-    #                                 quit()
-    #
-    #                         # 모든 window를 종료합니다.q
-    #                         cv2.destroyAllWindows()
-    # record.to_excel(PATH_RESULT + '/' + str("center_position records") + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.xlsx', sheet_name='record', index=False)
+                            iso_img = Image.fromarray(iso_img)
+                            Image.fromarray(img_iso).save('./test_img.tif')
+                            print("test")
+                            # plt.imshow(img_iso, cmap=plt.cm.bone)
+                            # plt.show()
+
+                            # os.path.join(PATH_ORIGINAL, nPatient, nCase, series_Q, nQ)
+                            # plt.imshow()
+                            # image = np.array(img_iso)
+                            image = np.asarray(img_iso)
+                            clone = img_iso.copy()
+                            cv2.namedWindow("isoImage")
+                            cv2.namedWindow("ROI_Image")
+                            cv2.setMouseCallback("isoImage", click_and_crop)
+
+                            while True:
+                                cv2.imshow("isoImage", image)
+                                cv2.imshow("ROI_Image", np.asarray(img_ans))
+                                key = cv2.waitKey(1) & 0xFF
+
+                                # 만약 r이 입력되면, 좌표 리셋합니다.
+                                if key == ord("r"):
+                                    image = clone.copy()
+                                # 그린 영역 포함해 이미지를 저장합니다.
+                                elif key == ord("s"):
+                                    # rename = os.path.join(PATH_RESULT, img_dir)
+                                    # cropped_img = image[]
+                                    new_record = {'dcm_name' : name_dcm, 'center_position': refPt[0]}
+                                    record.loc[record_count] = new_record
+                                    record_count += 1
+                                    imageio.imwrite(os.path.join(PATH_RESULT, name_dcm.split('.')[0] + str('.png')), cropped_image.astype(np.int16))
+
+                                    # cv2.imwrite(os.path.join(PATH_RESULT, img_dir), image)
+                                # 만약 q가 입력되면 작업을 끝냅니다.
+                                elif key == ord("q"):
+                                    break
+                                elif key == ord("x"):
+                                    quit()
+
+                            # 모든 window를 종료합니다.q
+                            cv2.destroyAllWindows()
+    record.to_excel(PATH_RESULT + '/' + str("center_position records") + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.xlsx', sheet_name='record', index=False)
 
 
     # =============================================================

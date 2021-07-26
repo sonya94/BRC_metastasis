@@ -8,18 +8,18 @@
 @Time    : 2021-07-21 오후 1:31
 @Desc: 
 """
-# def importOwnLib():
-#     if '/home/miruware/aProjects/lib' not in sys.path:
-#         sys.path.append('/home/miruware/aProjects/lib')
-#         print("lib path is successfully appended.")
-#     else:
-#         print("lib path is already exists.")
-#
-# importOwnLib()
-# import sonyalib as sonya
+def importOwnLib():
+    if '/home/miruware/aProjects/lib' not in sys.path:
+        sys.path.append('/home/miruware/aProjects/lib')
+        print("lib path is successfully appended.")
+    else:
+        print("lib path is already exists.")
 
-# import importlib
-# importlib.reload(sonya)
+importOwnLib()
+import sonyalib as sonya
+
+import importlib
+importlib.reload(sonya)
 import os, sys
 import numpy as np
 import pandas as pd
