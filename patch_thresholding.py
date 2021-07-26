@@ -8,18 +8,18 @@
 @Time    : 2021-07-21 오후 1:31
 @Desc: 
 """
-def importOwnLib():
-    if '/home/miruware/aProjects/lib' not in sys.path:
-        sys.path.append('/home/miruware/aProjects/lib')
-        print("lib path is successfully appended.")
-    else:
-        print("lib path is already exists.")
+# def importOwnLib():
+#     if '/home/miruware/aProjects/lib' not in sys.path:
+#         sys.path.append('/home/miruware/aProjects/lib')
+#         print("lib path is successfully appended.")
+#     else:
+#         print("lib path is already exists.")
+#
+# importOwnLib()
+# import sonyalib as sonya
 
-importOwnLib()
-import sonyalib as sonya
-
-import importlib
-importlib.reload(sonya)
+# import importlib
+# importlib.reload(sonya)
 import os, sys
 import numpy as np
 import pandas as pd
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     path = '/mnt/8TBDisk/BRC'
     PATH = '/mnt/8TBDisk/BRC/BRC2019_Q_patch'
     PATH_THRES_RESULT = '/mnt/8TBDisk/BRC/BRC2019_Q_thres_result'
-    sonya.createFolder(PATH_THRES_RESULT)
+    # sonya.createFolder(PATH_THRES_RESULT)
     PATH_RECORD = '/mnt/8TBDisk/BRC/lymph_volumns_' + file_name + '.xlsx'
     record_count = 0
     record = pd.DataFrame(columns=["환자key", "lVolume"])
